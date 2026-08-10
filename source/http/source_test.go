@@ -187,6 +187,48 @@ func TestHTTPDefaultName(t *testing.T) {
 	ref = nil
 }
 
+func TestHTTPFilenameTraversal(t *testing.T) {
+	t.Parallel()
+	ctx := context.TODO()
+
+	hs, err := newHTTPSource(t)
+	require.NoError(t, err)
+
+	resp := httpserver.Response{
+		Etag:    identity.NewID(),
+		Content: []byte("content1"),
+	}
+	server := httpserver.NewTestServer(map[string]httpserver.Response{
+		"/foo": resp,
+	})
+	defer server.Close()
+
+	// a client-provided filename must not be able to escape the snapshot root
+	id := &HTTPIdentifier{URL: server.URL + "/foo", Filename: "../../evil.txt"}
+
+	h, err := hs.Resolve(ctx, id, nil, nil)
+	require.NoError(t, err)
+
+	_, _, _, _, err = h.CacheKey(ctx, nil, 0)
+	require.NoError(t, err)
+
+	ref, err := h.Snapshot(ctx, nil)
+	require.NoError(t, err)
+	defer func() {
+		if ref != nil {
+			ref.Release(context.WithoutCancel(ctx))
+			ref = nil
+		}
+	}()
+
+	dt, err := readFile(ctx, ref, "evil.txt")
+	require.NoError(t, err)
+	require.Equal(t, []byte("content1"), dt)
+
+	ref.Release(context.TODO())
+	ref = nil
+}
+
 func TestHTTPInvalidURL(t *testing.T) {
 	t.Parallel()
 	ctx := context.TODO()
