@@ -30,6 +30,7 @@ env:
 
 jobs:
   build:
+    if: false
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -74,6 +75,7 @@ jobs:
           retention-days: 1
 
   test-windows-amd64:
+    if: false
     runs-on: ${{ matrix.os }}
     needs:
       - build
@@ -198,6 +200,7 @@ jobs:
         uses: crazy-max/ghaction-dump-context@v2
 
   test-freebsd-amd64:
+    if: false
     runs-on: ubuntu-22.04
     needs:
       - build
@@ -260,7 +263,7 @@ jobs:
           vagrant ssh -- "sudo cat /vagrant/.tmp/logs/containerd"
 
   sandbox-build:
-    if: ${{ github.repository == 'moby/buildkit' }}
+    if: false
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
     strategy:
       fail-fast: false

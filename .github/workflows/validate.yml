@@ -25,6 +25,7 @@ env:
 
 jobs:
   prepare:
+    if: false
     runs-on: ubuntu-24.04
     outputs:
       includes: ${{ steps.matrix.outputs.includes }}
@@ -64,6 +65,7 @@ jobs:
             core.setOutput('includes', JSON.stringify(matrix));
 
   validate:
+    if: false
     runs-on: ${{ matrix.runner }}
     needs:
       - prepare

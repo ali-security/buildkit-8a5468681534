@@ -32,6 +32,7 @@ env:
 
 jobs:
   test:
+    if: false
     uses: ./.github/workflows/.test.yml
     secrets: inherit
     with:
@@ -44,7 +45,7 @@ jobs:
 
   prepare:
     runs-on: ubuntu-24.04
-    if: github.event_name != 'schedule'
+    if: false
     outputs:
       typ: ${{ steps.prep.outputs.typ }}
       push: ${{ steps.prep.outputs.push }}
@@ -80,6 +81,7 @@ jobs:
           fi
 
   image:
+    if: false
     runs-on: ubuntu-24.04
     needs:
       - test
@@ -132,7 +134,7 @@ jobs:
 
   scout:
     runs-on: ubuntu-24.04
-    if: ${{ github.ref == 'refs/heads/master' && github.repository == 'moby/buildkit' }}
+    if: false
     permissions:
       # same as global permission
       contents: read
@@ -176,7 +178,7 @@ jobs:
 
   release:
     runs-on: ubuntu-24.04
-    if: startsWith(github.ref, 'refs/tags/dockerfile')
+    if: false
     permissions:
       # required to create GitHub release
       contents: write

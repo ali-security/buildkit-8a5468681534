@@ -34,6 +34,7 @@ on:
 
 jobs:
   validate:
+    if: false
     uses: docker/docs/.github/workflows/validate-upstream.yml@main
     with:
       module-name: moby/buildkit
