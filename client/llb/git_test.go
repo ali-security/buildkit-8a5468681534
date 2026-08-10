@@ -69,6 +69,47 @@ func TestGit(t *testing.T) {
 				"git.fullurl":          "https://github.com/foo/bar.git",
 			},
 		},
+		{
+			// the subdir may not escape the repository root
+			name:       "refarg with traversal subdir",
+			st:         Git("github.com/foo/bar.git", "ref:../../escape"),
+			identifier: "git://github.com/foo/bar.git#ref:escape",
+			attrs: map[string]string{
+				"git.authheadersecret": "GIT_AUTH_HEADER",
+				"git.authtokensecret":  "GIT_AUTH_TOKEN",
+				"git.fullurl":          "https://github.com/foo/bar.git",
+			},
+		},
+		{
+			name:       "refarg with nested traversal subdir",
+			st:         Git("github.com/foo/bar.git", "ref:dir/../../escape"),
+			identifier: "git://github.com/foo/bar.git#ref:escape",
+			attrs: map[string]string{
+				"git.authheadersecret": "GIT_AUTH_HEADER",
+				"git.authtokensecret":  "GIT_AUTH_TOKEN",
+				"git.fullurl":          "https://github.com/foo/bar.git",
+			},
+		},
+		{
+			name:       "refarg with absolute subdir",
+			st:         Git("github.com/foo/bar.git", "ref:/absolute/path"),
+			identifier: "git://github.com/foo/bar.git#ref:absolute/path",
+			attrs: map[string]string{
+				"git.authheadersecret": "GIT_AUTH_HEADER",
+				"git.authtokensecret":  "GIT_AUTH_TOKEN",
+				"git.fullurl":          "https://github.com/foo/bar.git",
+			},
+		},
+		{
+			name:       "refarg with parent subdir only",
+			st:         Git("github.com/foo/bar.git", "ref:../"),
+			identifier: "git://github.com/foo/bar.git#ref",
+			attrs: map[string]string{
+				"git.authheadersecret": "GIT_AUTH_HEADER",
+				"git.authtokensecret":  "GIT_AUTH_TOKEN",
+				"git.fullurl":          "https://github.com/foo/bar.git",
+			},
+		},
 	}
 
 	for _, tc := range tcases {

@@ -2,6 +2,7 @@ package gitutil
 
 import (
 	"net/url"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -194,6 +195,58 @@ func TestParseURL(t *testing.T) {
 				require.Equal(t, test.result.Query, remote.Query)
 				require.Equal(t, test.result.User.String(), remote.User.String())
 			}
+		})
+	}
+}
+
+// TestParseURLSubdirEscape checks that the subdir component of a URL fragment
+// is always normalized to a path contained in the repository root, so that it
+// can not be used to reach files outside of the checked out repository.
+func TestParseURLSubdirEscape(t *testing.T) {
+	tests := []struct {
+		url    string
+		subdir string
+	}{
+		{
+			url:    "https://github.com/moby/buildkit.git#v1.0.0:../../escape",
+			subdir: "escape",
+		},
+		{
+			url:    "https://github.com/moby/buildkit.git#v1.0.0:dir/../../escape",
+			subdir: "escape",
+		},
+		{
+			url:    "https://github.com/moby/buildkit.git#v1.0.0:/absolute/path",
+			subdir: "absolute/path",
+		},
+		{
+			url:    "https://github.com/moby/buildkit.git#v1.0.0:..",
+			subdir: "",
+		},
+		{
+			url:    "https://github.com/moby/buildkit.git#v1.0.0:./sub/",
+			subdir: "sub",
+		},
+		{
+			url:    "git://github.com/moby/buildkit.git#v1.0.0:../../escape",
+			subdir: "escape",
+		},
+		{
+			url:    "ssh://github.com/moby/buildkit.git#v1.0.0:/absolute/path",
+			subdir: "absolute/path",
+		},
+		{
+			url:    "git@github.com:moby/buildkit.git#v1.0.0:../../escape",
+			subdir: "escape",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.url, func(t *testing.T) {
+			remote, err := ParseURL(test.url)
+			require.NoError(t, err)
+			require.NotNil(t, remote.Opts)
+			require.Equal(t, test.subdir, remote.Opts.Subdir)
+			require.False(t, path.IsAbs(remote.Opts.Subdir))
 		})
 	}
 }
