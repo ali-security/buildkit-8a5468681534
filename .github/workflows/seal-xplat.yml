@@ -104,6 +104,78 @@ jobs:
           set -eux
           sudo -E env "PATH=$PATH" go test -short ./...
 
+  # `go test -short` above gates off every integration.Run() suite (see
+  # util/testutil/integration/run.go). Those are the tests that boot a real
+  # buildkitd worker and exercise the patched HTTP-source and git-source code
+  # end to end, so they are run here the way upstream runs them: the
+  # integration-tests image built from docker-bake.hcl, driven by ./hack/test.
+  test-integration-linux:
+    name: test-integration-linux (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          -
+            name: client
+            pkgs: ./client
+            testflags: "--run=//worker=oci$"
+          -
+            name: frontend-buildctl-solver
+            pkgs: ./frontend ./cmd/buildctl ./solver
+            testflags: "--run=//worker=oci$"
+          -
+            # ./frontend/dockerfile is the largest suite in the tree (upstream
+            # shards it 12 ways); only the git/HTTP context and ADD-from-URL
+            # cases reach the patched sources, so those are the ones run.
+            name: dockerfile-git-http
+            pkgs: ./frontend/dockerfile
+            testflags: "--run=TestIntegration/(TestDockerfileFromGitSHA1|TestDockerfileFromGitSHA256|TestDockerfileFromHTTP|TestHTTPDockerfile|TestDockerfileADDFromURL|TestAddURLChmod)/worker=oci$"
+    env:
+      TESTFLAGS: "-v --parallel=4 --timeout=120m"
+      GOTESTSUM_FORMAT: "standard-verbose"
+      TEST_IMAGE_BUILD: "0"
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v5
+      -
+        name: Expose GitHub Runtime
+        uses: crazy-max/ghaction-github-runtime@v3
+      -
+        name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          version: "edge"
+          driver-opts: image=moby/buildkit:latest
+          buildkitd-flags: --debug
+      -
+        name: Free disk space
+        shell: bash
+        run: |
+          set -eux
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup
+          df -h /
+      -
+        name: Build test image
+        uses: docker/bake-action@v6
+        with:
+          targets: integration-tests
+          provenance: false
+      -
+        name: Test
+        shell: bash
+        run: |
+          set -eux
+          ./hack/test integration
+        env:
+          TESTPKGS: ${{ matrix.pkgs }}
+          TESTFLAGS: "${{ env.TESTFLAGS }} ${{ matrix.testflags }}"
+
   test-windows:
     runs-on: windows-latest
     timeout-minutes: 60
