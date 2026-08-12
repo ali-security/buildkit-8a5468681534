@@ -117,21 +117,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Both of upstream's primary workers run: `oci` (runcexecutor) and
+          # `containerd` (containerdexecutor). CVE-2026-33747's ValidContainerID
+          # guard is wired into both executors, and each executor is only
+          # reached through its own worker.
           -
             name: client
             pkgs: ./client
-            testflags: "--run=//worker=oci$"
+            testflags: "--run=//worker=(oci|containerd)$"
           -
-            name: frontend-buildctl-solver
-            pkgs: ./frontend ./cmd/buildctl ./solver
-            testflags: "--run=//worker=oci$"
+            # ./worker/containerd's suite only registers cases on the containerd
+            # worker; it is a no-op on the oci one.
+            name: frontend-buildctl-solver-workers
+            pkgs: ./frontend ./cmd/buildctl ./solver ./worker/containerd
+            testflags: "--run=//worker=(oci|containerd)$"
           -
             # ./frontend/dockerfile is the largest suite in the tree (upstream
             # shards it 12 ways); only the git/HTTP context and ADD-from-URL
             # cases reach the patched sources, so those are the ones run.
             name: dockerfile-git-http
             pkgs: ./frontend/dockerfile
-            testflags: "--run=TestIntegration/(TestDockerfileFromGitSHA1|TestDockerfileFromGitSHA256|TestDockerfileFromHTTP|TestHTTPDockerfile|TestDockerfileADDFromURL|TestAddURLChmod)/worker=oci$"
+            testflags: "--run=TestIntegration/(TestDockerfileFromGitSHA1|TestDockerfileFromGitSHA256|TestDockerfileFromHTTP|TestHTTPDockerfile|TestDockerfileADDFromURL|TestAddURLChmod)/worker=(oci|containerd)$"
     env:
       TESTFLAGS: "-v --parallel=4 --timeout=120m"
       GOTESTSUM_FORMAT: "standard-verbose"
