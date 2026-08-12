@@ -408,11 +408,6 @@ func (hs *httpSourceHandler) save(ctx context.Context, resp *http.Response, s se
 		return nil, "", err
 	}
 
-	if err := f.Close(); err != nil {
-		return nil, "", err
-	}
-	f = nil
-
 	uid := hs.src.UID
 	gid := hs.src.GID
 	if idmap := mount.IdentityMapping(); idmap != nil {
@@ -422,8 +417,14 @@ func (hs *httpSourceHandler) save(ctx context.Context, resp *http.Response, s se
 		}
 	}
 
+	// Apply ownership and timestamps to the open file descriptor (fchown /
+	// futimes) rather than re-resolving the path, so a symlink swapped into
+	// place after the write cannot redirect them (a TOCTOU). os.Root.Chown /
+	// os.Root.Chtimes would be the direct equivalent but are Go 1.25-only and
+	// this module targets go1.24; the fd-based ops give the same guarantee.
+	// These run before f.Close() so the descriptor is still valid.
 	if gid != 0 || uid != 0 {
-		if err := os.Chown(fp, uid, gid); err != nil {
+		if err := f.Chown(uid, gid); err != nil {
 			return nil, "", err
 		}
 	}
@@ -436,9 +437,14 @@ func (hs *httpSourceHandler) save(ctx context.Context, resp *http.Response, s se
 		}
 	}
 
-	if err := os.Chtimes(fp, mTime, mTime); err != nil {
+	if err := fchtimes(f, fp, mTime); err != nil {
 		return nil, "", err
 	}
+
+	if err := f.Close(); err != nil {
+		return nil, "", err
+	}
+	f = nil
 
 	lm.Unmount()
 	lm = nil
