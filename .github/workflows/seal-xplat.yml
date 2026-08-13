@@ -117,14 +117,59 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Both of upstream's primary workers run: `oci` (runcexecutor) and
-          # `containerd` (containerdexecutor). CVE-2026-33747's ValidContainerID
-          # guard is wired into both executors, and each executor is only
-          # reached through its own worker.
+          # ./client holds the HTTP-source integration tests, so it runs on
+          # every worker the integration-tests image registers - upstream's
+          # full set of nine. The image already ENVs the gates that register
+          # them (BUILDKIT_INTEGRATION_ROOTLESS_IDPAIR,
+          # BUILDKIT_INTEGRATION_CONTAINERD_EXTRA,
+          # BUILDKIT_INTEGRATION_SNAPSHOTTER), so only the --run filter selects.
+          # The rootless workers matter most here: they are the only ones with
+          # a non-nil mount.IdentityMapping(), so they exercise the
+          # idmap.ToHost -> f.Chown path the CVE-2026-33747 backport rewrote
+          # from a path-based chown to an fd-based one. The stargz/native
+          # snapshotter workers vary the mount backing the directory that
+          # os.OpenRoot() now confines the write to.
+          # One job per worker, fail-fast off, so a flake in the notoriously
+          # slow rootless/stargz legs can be re-run on its own.
           -
-            name: client
+            name: client-oci
             pkgs: ./client
-            testflags: "--run=//worker=(oci|containerd)$"
+            testflags: "--run=//worker=oci$"
+          -
+            name: client-oci-rootless
+            pkgs: ./client
+            testflags: "--run=//worker=oci-rootless$"
+          -
+            name: client-oci-rootless-slirp4netns-detachnetns
+            pkgs: ./client
+            testflags: "--run=//worker=oci-rootless-slirp4netns-detachnetns$"
+          -
+            name: client-oci-snapshotter-stargz
+            pkgs: ./client
+            testflags: "--run=//worker=oci-snapshotter-stargz$"
+          -
+            name: client-containerd
+            pkgs: ./client
+            testflags: "--run=//worker=containerd$"
+          -
+            name: client-containerd-rootless
+            pkgs: ./client
+            testflags: "--run=//worker=containerd-rootless$"
+          -
+            name: client-containerd-1.7
+            pkgs: ./client
+            testflags: "--run=//worker=containerd-1.7$"
+          -
+            name: client-containerd-2.0
+            pkgs: ./client
+            testflags: "--run=//worker=containerd-2.0$"
+          -
+            name: client-containerd-snapshotter-stargz
+            pkgs: ./client
+            testflags: "--run=//worker=containerd-snapshotter-stargz$"
+          # The remaining two legs stay on the two primary workers: they cover
+          # the git-source sink and the executor guards, neither of which
+          # varies by snapshotter or rootless mode.
           -
             # ./worker/containerd's suite only registers cases on the containerd
             # worker; it is a no-op on the oci one.
